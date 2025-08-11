@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
     "regexp"
+    "os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -39,7 +40,7 @@ var timeRegexp = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)
 
 
 
-var jwtSecret = []byte("my_secret_key") // For demo only, use ENV for production
+var jwtSecret = []byte(os.Getenv("JWT_SECRET")) // For demo only, use ENV for production
 
 // -------- JWT Authentication Middleware --------
 func AuthMiddleware() gin.HandlerFunc {
@@ -282,20 +283,27 @@ func PostMood(c *gin.Context) {
         return
     }
 
-    sentiment := 0.0 // fallback if AI service fails
+    sentiment := 0.0
     aiReq, _ := json.Marshal(map[string]string{"message": req.Message})
-    httpResp, err := http.Post("http://localhost:9000/analyze", "application/json", bytes.NewBuffer(aiReq))
-    if err != nil {
-        fmt.Println("Could not reach AI service:", err)
-    } else if httpResp.StatusCode == 200 {
-        var aiResp struct {
-            Sentiment float64 `json:"sentiment"`
-        }
-        json.NewDecoder(httpResp.Body).Decode(&aiResp)
-        sentiment = aiResp.Sentiment
-        httpResp.Body.Close()
+
+    // Read from env var instead of hardcoding
+    aiServiceURL := os.Getenv("REACT_APP_PUBLIC_AI_SERVICE_URL")
+    if aiServiceURL == "" {
+        fmt.Println("WARNING: REACT_APP_PUBLIC_AI_SERVICE_URL not set")
     } else {
-        fmt.Println("AI service returned HTTP", httpResp.StatusCode)
+        httpResp, err := http.Post(aiServiceURL, "application/json", bytes.NewBuffer(aiReq))
+        if err != nil {
+            fmt.Println("Could not reach AI service:", err)
+        } else if httpResp.StatusCode == 200 {
+            var aiResp struct {
+                Sentiment float64 `json:"sentiment"`
+            }
+            json.NewDecoder(httpResp.Body).Decode(&aiResp)
+            sentiment = aiResp.Sentiment
+            httpResp.Body.Close()
+        } else {
+            fmt.Println("AI service returned HTTP", httpResp.StatusCode)
+        }
     }
 
     moodID := uuid.New()
@@ -649,7 +657,8 @@ func ForgotPassword(c *gin.Context) {
     }
 
     // Prepare the reset URL – your deployed frontend domain or localhost for dev
-    resetURL := fmt.Sprintf("https://your-frontend.com/reset-password?token=%s", token) // Change domain in prod
+    frontendURL := os.Getenv("FRONTEND_URL")
+resetURL := fmt.Sprintf("%s/reset-password?token=%s", frontendURL, token) // Change domain in prod
 
     // Send the email via SMTP – for dev, log error to server console
     if err := sendResetEmailViaSMTP(req.Email, resetURL); err != nil {

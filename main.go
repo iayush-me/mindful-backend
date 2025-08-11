@@ -1,6 +1,7 @@
 package main
 
 import (
+    "os"
     "github.com/gin-contrib/cors"
 	"time"
     "github.com/gin-gonic/gin"
@@ -12,7 +13,8 @@ import (
 
 func CORSMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+        frontendOrigin := os.Getenv("FRONTEND_URL")
+        c.Writer.Header().Set("Access-Control-Allow-Origin", frontendOrigin)
         c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
         c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type")
         c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -38,8 +40,9 @@ func main() {
 
     // Enable CORS (so React and other frontends can access your API)
     //r.Use(cors.Default())
+    frontendOrigin := os.Getenv("FRONTEND_URL")
 	r.Use(cors.New(cors.Config{
-    AllowOrigins:     []string{"http://localhost:3000"}, // your frontend URL
+    AllowOrigins:     []string{frontendOrigin}, // your frontend URL
     AllowMethods:     []string{"GET", "POST","PATCH","PUT","DELETE", "OPTIONS"},
     AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
     ExposeHeaders:    []string{"Content-Length"},
